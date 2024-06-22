@@ -1,17 +1,19 @@
 package main
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"log"
 	"os"
 )
 
 func main() {
 	args := os.Args
-	fmt.Println(args)
+	// Log(args)
+
+	repo, err := OpenRepo()
+	if err != nil {
+		panic(err)
+	}
 
 	if len(args) < 3 {
 		log.Fatalf(`type some commands: "hash-object" or "cat-file" and target file`)
@@ -19,33 +21,38 @@ func main() {
 
 	switch args[1] {
 	case "cat-file":
+		mode := args[2]
+		shaStr := args[3]
+		CatFile(repo, mode, shaStr)
+
 	case "hash-object":
-		f, err := os.Open(args[2])
+		f := MustOpen(args[2])
+		sha, err := HashObject(Blob, f)
 		if err != nil {
 			panic(err)
 		}
 
-		sha, err := HashObject(f)
+		fmt.Println(sha.String())
+	case "read-object":
+		sha, err := NewSHAFromString(args[2])
 		if err != nil {
 			panic(err)
 		}
 
-		fmt.Println(sha)
+		o, err := ReadObject(repo, sha)
+		if err != nil {
+			panic(err)
+		}
+
+		Logf("%s", o.Body)
 	}
 }
 
-type SHA [sha1.Size]byte
-
-func (s SHA) String() string {
-	return hex.EncodeToString(s[:])
-}
-
-func HashObject(r io.Reader) (SHA, error) {
-	data, err := io.ReadAll(r)
-	fmt.Printf("%s\n", data)
+func MustOpen(path string) *os.File {
+	f, err := os.Open(path)
 	if err != nil {
-		return SHA{}, err
+		panic(err)
 	}
 
-	return sha1.Sum(data), nil
+	return f
 }
